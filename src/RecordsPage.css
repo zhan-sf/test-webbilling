@@ -1,0 +1,110 @@
+.records-shell { min-height: 100svh; background: var(--color-bg); }
+.records-header { min-height: 76px; padding: var(--space-md) var(--space-xl); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); }
+.records-eyebrow, .record-inspector p { margin: 0 0 var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.records-header h1 { margin: 0; font-size: var(--text-xl); letter-spacing: -.02em; }
+.records-header-actions { display: flex; align-items: center; gap: var(--space-md); }
+.records-header-actions a { padding: var(--space-xs) 2px; border-bottom: 2px solid var(--color-primary); color: var(--color-ink); font-size: var(--text-sm); font-weight: 700; text-decoration: none; }
+.records-header-actions a:hover { color: var(--color-primary-strong); }
+.records-connection { min-height: 36px; padding: 0 var(--space-sm); border-radius: 999px; display: inline-flex; align-items: center; gap: var(--space-xs); color: var(--color-muted-strong); background: var(--color-surface); font-size: var(--text-sm); font-weight: 600; white-space: nowrap; }
+.records-connection > span { width: 8px; height: 8px; border-radius: 50%; background: var(--color-muted); }
+.records-connection.loading > span { background: var(--color-primary); animation: records-pulse 1.2s ease-in-out infinite; }
+.records-connection.ready > span { background: var(--color-success); }
+.records-connection.failed > span { background: var(--color-danger); }
+.records-main { width: min(1600px, 100%); margin: 0 auto; padding: var(--space-xl); display: grid; gap: var(--space-lg); }
+.records-context { padding: var(--space-lg); border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-surface); display: grid; gap: var(--space-md); }
+.context-heading { display: flex; align-items: start; justify-content: space-between; gap: var(--space-lg); }
+.context-heading h2 { margin: 0; font-size: var(--text-lg); letter-spacing: -.015em; }
+.context-heading p { margin: var(--space-2xs) 0 0; color: var(--color-muted-strong); font-size: var(--text-sm); }
+.context-meta { display: flex; align-items: center; gap: var(--space-sm); }
+.context-meta span { color: var(--color-muted); font-size: var(--text-xs); white-space: nowrap; }
+.context-grid { display: grid; grid-template-columns: minmax(300px, 2fr) minmax(180px, 1fr) minmax(150px, .8fr) minmax(260px, 1.5fr); align-items: end; gap: var(--space-md); }
+.records-workspace { border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-bg); overflow: hidden; }
+.workspace-header { min-height: 64px; border-bottom: 1px solid var(--color-border); display: flex; align-items: stretch; justify-content: space-between; }
+.workspace-controls { padding: var(--space-lg); border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
+.workspace-balance { min-width: 300px; padding: 0 var(--space-lg); border-left: 1px solid var(--color-border); display: flex; align-items: center; justify-content: flex-end; gap: var(--space-sm); color: var(--color-primary-ink); background: var(--color-primary-soft); }
+.workspace-balance span, .workspace-balance small { font-size: var(--text-xs); font-weight: 700; }
+.workspace-balance strong { font-family: var(--font-mono); font-size: var(--text-lg); font-variant-numeric: tabular-nums; }
+.query-grid { display: grid; align-items: end; gap: var(--space-md); }
+.tab-query-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.query-field { min-width: 0; display: grid; gap: var(--space-xs); }
+.query-field-wide { grid-column: span 2; }
+.query-field > span { color: var(--color-muted-strong); font-size: var(--text-xs); font-weight: 700; }
+.query-field input, .query-field select { width: 100%; min-height: 44px; padding: 0 var(--space-sm); border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-bg); outline: 0; }
+.query-field input:focus, .query-field select:focus { border-color: var(--color-primary-strong); box-shadow: 0 0 0 3px var(--color-primary-soft-strong); }
+.records-secret { position: relative; }
+.records-secret input { padding-right: 62px; }
+.records-secret button { position: absolute; inset: 4px 4px 4px auto; min-width: 54px; border: 0; border-radius: 6px; color: var(--color-muted-strong); background: transparent; font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.records-secret button:hover { background: var(--color-surface-strong); }
+.records-text-button { width: max-content; padding: 0; border: 0; color: var(--color-danger); background: transparent; font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.records-tabs { min-height: 64px; padding: 0 var(--space-lg); display: flex; align-items: stretch; gap: var(--space-xl); background: var(--color-bg); }
+.records-tabs button { position: relative; padding: 0; border: 0; color: var(--color-muted-strong); background: transparent; font-weight: 700; cursor: pointer; }
+.records-tabs button::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 3px; border-radius: 3px 3px 0 0; background: transparent; content: ''; }
+.records-tabs button:hover { color: var(--color-ink); }
+.records-tabs button.active { color: var(--color-ink); }
+.records-tabs button.active::after { background: var(--color-primary); }
+.records-submit { min-height: 44px; padding: 0 var(--space-lg); border: 1px solid var(--color-primary-strong); border-radius: var(--radius-control); color: var(--color-on-primary); background: var(--color-primary-strong); font-weight: 800; cursor: pointer; }
+.records-submit:hover:not(:disabled) { background: var(--color-primary-hover); }
+.records-submit:disabled { cursor: wait; opacity: .7; }
+.records-message { margin: var(--space-md) var(--space-lg) 0; padding: var(--space-sm) var(--space-md); border: 1px solid color-mix(in oklch, var(--color-danger) 30%, transparent); border-radius: var(--radius-control); display: flex; gap: var(--space-sm); color: var(--color-danger-ink); background: var(--color-danger-bg); }
+.records-message span { color: var(--color-danger-ink); }
+.records-results { padding: 0 var(--space-lg) var(--space-md); }
+.results-heading { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.results-heading h2 { margin: 0; font-size: var(--text-xl); }
+.results-heading > span { color: var(--color-muted); font-size: var(--text-sm); }
+.records-table-wrap { width: 100%; overflow-x: auto; border-top: 1px solid var(--color-border-strong); border-bottom: 1px solid var(--color-border); }
+.records-table { width: 100%; min-width: 1180px; border-collapse: collapse; font-size: var(--text-sm); }
+.records-table th { height: 48px; padding: 0 var(--space-sm); color: var(--color-muted-strong); background: var(--color-surface); font-size: var(--text-xs); text-align: left; white-space: nowrap; }
+.records-table td { min-height: 60px; padding: var(--space-sm); border-top: 1px solid var(--color-border); vertical-align: middle; }
+.records-table tbody tr:hover { background: var(--color-primary-soft); }
+.records-table td strong { display: block; font-weight: 700; white-space: nowrap; }
+.records-table td small { display: block; max-width: 220px; margin-top: var(--space-2xs); overflow: hidden; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.enum-label { display: inline-flex; min-height: 28px; align-items: center; padding: 0 8px; border-radius: 5px; color: var(--color-primary-ink); background: var(--color-primary-soft-strong); font-size: var(--text-xs); font-weight: 800; white-space: nowrap; }
+.mono-cell { max-width: 220px; overflow: hidden; font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.table-action { min-height: 34px; padding: 0 var(--space-sm); border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-bg); font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.table-action:hover { border-color: var(--color-primary-strong); background: var(--color-primary-soft); }
+.records-state { min-height: 240px; border-top: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; gap: var(--space-sm); color: var(--color-muted-strong); background: var(--color-surface); }
+.records-state.empty { flex-direction: column; text-align: center; }
+.records-state.empty strong { color: var(--color-ink); font-size: var(--text-lg); }
+.records-state.empty span { color: var(--color-muted); font-size: var(--text-sm); }
+.records-loader { width: 18px; height: 18px; border: 2px solid var(--color-primary-soft-strong); border-top-color: var(--color-primary-strong); border-radius: 50%; animation: records-spin .8s linear infinite; }
+.record-inspector { margin-top: var(--space-lg); padding: var(--space-lg); border: 1px solid var(--color-primary-soft-strong); border-radius: var(--radius-panel); background: var(--color-primary-soft); }
+.record-inspector h3 { margin: 0; font-size: var(--text-lg); word-break: break-all; }
+.record-inspector dl { margin: var(--space-lg) 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-md); }
+.record-inspector dl > div { min-width: 0; padding-top: var(--space-sm); border-top: 1px solid var(--color-primary-soft-strong); }
+.record-inspector dt { color: var(--color-muted-strong); font-size: var(--text-xs); font-weight: 700; }
+.record-inspector dd { margin: var(--space-xs) 0 0; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-sm); }
+.record-inspector .inspector-json { grid-column: span 2; }
+.record-inspector pre { max-height: 160px; margin: 0; overflow: auto; white-space: pre-wrap; }
+.records-pagination { min-height: 76px; display: flex; align-items: center; justify-content: center; gap: var(--space-md); }
+.records-pagination button { min-height: 38px; padding: 0 var(--space-md); border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-bg); font-weight: 700; cursor: pointer; }
+.records-pagination button:disabled { cursor: not-allowed; opacity: .4; }
+.records-pagination span { color: var(--color-muted-strong); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+@keyframes records-spin { to { transform: rotate(360deg); } }
+@keyframes records-pulse { 50% { opacity: .35; } }
+@media (max-width: 1180px) {
+  .context-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .record-inspector dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .records-header { min-height: 68px; padding: var(--space-sm) var(--space-md); }
+  .records-header h1 { font-size: var(--text-lg); }
+  .records-eyebrow, .records-connection { display: none; }
+  .records-main { padding: var(--space-lg) var(--space-md); }
+  .records-context, .workspace-controls { padding: var(--space-md); }
+  .context-heading { align-items: stretch; flex-direction: column; gap: var(--space-xs); }
+  .context-meta { justify-content: space-between; }
+  .context-meta span { white-space: normal; }
+  .context-grid, .tab-query-grid { grid-template-columns: 1fr; }
+  .query-field-wide { grid-column: span 1; }
+  .workspace-header { align-items: stretch; flex-direction: column; }
+  .records-tabs { padding-inline: var(--space-md); gap: var(--space-lg); overflow-x: auto; }
+  .records-tabs button { min-height: 54px; white-space: nowrap; }
+  .workspace-balance { min-width: 0; min-height: 52px; border-top: 1px solid var(--color-primary-soft-strong); border-left: 0; justify-content: flex-start; }
+  .records-results { padding-inline: var(--space-md); }
+  .records-message { margin-inline: var(--space-md); }
+  .record-inspector dl { grid-template-columns: 1fr; }
+  .record-inspector .inspector-json { grid-column: span 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .records-loader, .records-connection.loading > span { animation: none; }
+}
