@@ -2,11 +2,11 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import RecordsPage from './RecordsPage'
-import { CreditPointBusinessType } from './types'
+import { BillingOrderStatus, CreditPointBusinessType } from './types'
 import { TENANT_ID_STORAGE_KEY } from './ui'
 
-function jsonResponse(data: unknown) {
-  return new Response(JSON.stringify({ code: 1, data }), {
+function mdApiResponse(data: unknown) {
+  return new Response(JSON.stringify({ state: 1, data }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
@@ -34,7 +34,7 @@ describe('billing records demo', () => {
 
   it('queries orders and renders enum labels with original account ids', async () => {
     const user = userEvent.setup()
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+    const fetchMock = vi.fn().mockResolvedValue(mdApiResponse({
       items: [{
         orderId: 'order-1',
         orderNo: 'B001',
@@ -42,7 +42,7 @@ describe('billing records demo', () => {
         tenantId: 'tenant-1',
         item: { productCode: 10101, productName: 'HAP用户扩展包', quantity: 1, unitPrice: 128 },
         totalAmount: 128,
-        orderStatus: 2,
+        orderStatus: BillingOrderStatus.Expired,
         paymentMethod: 3,
         creatorAccountId: 'creator-id',
         payerAccountId: 'payer-id',
@@ -61,28 +61,30 @@ describe('billing records demo', () => {
     expect(await screen.findByText('HAP用户扩展包')).toBeInTheDocument()
     expect(screen.getByText('creator-id')).toBeInTheDocument()
     expect(screen.getByText('payer-id')).toBeInTheDocument()
-    expect(within(screen.getByRole('table')).getByText('已支付')).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getByText('已过期')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('信用点')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '已过期' })).toHaveValue('4')
     const request = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
     expect(request).toEqual(expect.objectContaining({
-      requestId: 'MDBillingPaymentWeb',
-      productSource: 1,
-      tenantId: 'tenant-1',
+      projectId: 'tenant-1',
       orderStatuses: [],
+      pageIndex: 1,
+      pageSize: 20,
     }))
+    expect(fetchMock.mock.calls[0][0]).toBe('/mdapi/Billing/ListOrders')
   })
 
   it('shows the current balance with credit entries', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         productSource: 1,
         tenantId: 'tenant-1',
         balance: 197.157,
-        createdAt: 1,
-        updatedAt: 1_753_142_400_000,
+        createTime: '2025-07-22 07:59:00',
+        updateTime: '2025-07-22 08:00:00',
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           id: 'entry-1',
           transactionType: 2,
@@ -105,23 +107,65 @@ describe('billing records demo', () => {
     await user.click(screen.getByRole('button', { name: '查询记录' }))
 
     expect(await screen.findAllByText('197.157')).toHaveLength(2)
+    expect(screen.getByText('2025-07-22 08:00:00 更新')).toBeInTheDocument()
     expect(screen.getByText('operator-id')).toBeInTheDocument()
     expect(screen.getByText('AI 调用')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('支出')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('AIGC')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      '/mdapi/Billing/GetCreditPointBalance',
+      '/mdapi/Billing/GetListCreditPoints',
+    ])
+  })
+
+  it('shows credit entries and hides the balance when the balance request fails', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        state: 0,
+        exception: 'Unauthorized',
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(mdApiResponse({
+        items: [{
+          id: 'entry-1',
+          transactionType: 2,
+          amount: 12.5,
+          balanceBefore: 20,
+          balanceAfter: 7.5,
+          quantity: 1,
+          businessType: CreditPointBusinessType.Aigc,
+          operatorAccountId: 'operator-id',
+          remark: 'AI 调用',
+          createdAt: 1_753_142_400_000,
+        }],
+        page: { totalCount: 1, pageIndex: 1, pageSize: 20 },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<RecordsPage />)
+    await user.click(screen.getByRole('button', { name: '信用点明细' }))
+    await fillCommonQuery(user)
+
+    await user.click(screen.getByRole('button', { name: '查询记录' }))
+
+    expect(await screen.findByText('operator-id')).toBeInTheDocument()
+    expect(screen.queryByLabelText('当前信用点余额')).not.toBeInTheDocument()
+    expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument()
   })
 
   it('forces refund transaction type and displays optional original entry and operator ids', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         productSource: 2,
         tenantId: 'tenant-1',
         balance: 80,
-        createdAt: 1,
-        updatedAt: 1,
+        createTime: '2025-07-22 07:59:00',
+        updateTime: '2025-07-22 08:00:00',
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           id: 'refund-entry-id',
           transactionType: 3,

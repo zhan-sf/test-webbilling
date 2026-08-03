@@ -1,5 +1,5 @@
 export const BillingOrderStatus = {
-  Unspecified: 0, PendingPayment: 1, Paid: 2, Completed: 3,
+  Unspecified: 0, PendingPayment: 1, Paid: 2, Completed: 3, Expired: 4,
 } as const
 export type BillingOrderStatus = (typeof BillingOrderStatus)[keyof typeof BillingOrderStatus]
 
@@ -53,7 +53,8 @@ export interface GetCreditPointBalanceRequest {
   productSource: ProductSource; tenantId: string;
 }
 export interface CreditPointBalance {
-  productSource: ProductSource; tenantId: string; balance: number; createdAt: number; updatedAt: number;
+  productSource: ProductSource; tenantId: string; balance: number;
+  createTime?: string; updateTime?: string; createdAt?: number; updatedAt?: number;
 }
 export const CreditPointTransactionType = {
   Unspecified: 0, Income: 1, Expense: 2, Refund: 3,

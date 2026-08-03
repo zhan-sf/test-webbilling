@@ -65,10 +65,18 @@ describe('Billing API client', () => {
     })
   })
 
-  it('uses the test query endpoints and preserves grpc-shaped request bodies', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
-      code: 1,
-      data: { items: [], page: { totalCount: 0, pageIndex: 1, pageSize: 20 } },
+  it('routes HAP queries through MDAPI and maps request bodies', async () => {
+    const fetchMock = vi.fn().mockImplementation((path: string) => Promise.resolve(new Response(JSON.stringify({
+      ...(path.startsWith('/mdapi/') ? { state: 1 } : { code: 1 }),
+      data: path.endsWith('/GetCreditPointBalance')
+        ? {
+            productSource: ProductSource.Hap,
+            tenantId: 'tenant-1',
+            balance: 10,
+            createTime: '2025-07-22 07:59:00',
+            updateTime: '2025-07-22 08:00:00',
+          }
+        : { items: [], page: { totalCount: 0, pageIndex: 1, pageSize: 20 } },
     }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
     vi.stubGlobal('fetch', fetchMock)
     const common = {
@@ -87,7 +95,7 @@ describe('Billing API client', () => {
       createdTo: 0,
       page: { pageIndex: 1, pageSize: 20 },
     }, authorization)
-    await getCreditPointBalance({
+    const balance = await getCreditPointBalance({
       productSource: common.productSource,
       tenantId: common.tenantId,
     }, authorization)
@@ -121,20 +129,105 @@ describe('Billing API client', () => {
     }, authorization)
 
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
-      '/api/BillingTest/ListOrders',
-      '/api/Payment/GetCreditPointBalance',
-      '/api/BillingTest/GetListCreditPoints',
-      '/api/BillingTest/GetCreditPointOverview',
-      '/api/BillingTest/GetCreditPointStatistics',
+      '/mdapi/Billing/ListOrders',
+      '/mdapi/Billing/GetCreditPointBalance',
+      '/mdapi/Billing/GetListCreditPoints',
+      '/mdapi/Billing/GetCreditPointOverview',
+      '/mdapi/Billing/GetCreditPointStatistics',
     ])
+    const orderBody = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
+    expect(orderBody).toEqual({
+      projectId: 'tenant-1',
+      orderStatuses: [2],
+      productCode: 10101,
+      orderNo: '',
+      creatorAccountId: '',
+      createdFrom: 0,
+      createdTo: 0,
+      pageIndex: 1,
+      pageSize: 20,
+    })
     const balanceBody = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body))
-    expect(balanceBody).toEqual({ productSource: ProductSource.Hap, tenantId: 'tenant-1' })
+    expect(balanceBody).toEqual({ projectId: 'tenant-1' })
+    expect(balance.updateTime).toBe('2025-07-22 08:00:00')
     const refundBody = JSON.parse(String((fetchMock.mock.calls[2][1] as RequestInit).body))
     expect(refundBody.transactionType).toBe(CreditPointTransactionType.Refund)
-    expect(refundBody.page).toEqual({ pageIndex: 1, pageSize: 20 })
+    expect(refundBody).not.toHaveProperty('requestId')
+    expect(refundBody).not.toHaveProperty('productSource')
+    expect(refundBody).not.toHaveProperty('tenantId')
+    expect(refundBody).not.toHaveProperty('page')
+    expect(refundBody).toEqual(expect.objectContaining({
+      projectId: 'tenant-1',
+      pageIndex: 1,
+      pageSize: 20,
+    }))
     const statisticsBody = JSON.parse(String((fetchMock.mock.calls[4][1] as RequestInit).body))
     expect(statisticsBody.groupByExtensionField).toBe('modelName')
-    expect(statisticsBody.page).toEqual({ pageIndex: 1, pageSize: 200 })
+    expect(statisticsBody).toEqual(expect.objectContaining({
+      projectId: 'tenant-1',
+      pageIndex: 1,
+      pageSize: 200,
+    }))
+  })
+
+  it('keeps HDP queries on BillingTest with grpc-shaped bodies', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 1,
+      data: { items: [], page: { totalCount: 0, pageIndex: 1, pageSize: 20 } },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const payload = {
+      requestId: 'MDBillingPaymentWeb',
+      productSource: ProductSource.Hdp,
+      tenantId: 'tenant-1',
+      orderStatuses: [],
+      productCode: 0,
+      orderNo: '',
+      creatorAccountId: '',
+      createdFrom: 0,
+      createdTo: 0,
+      page: { pageIndex: 2, pageSize: 20 },
+    }
+
+    await listOrders(payload, authorization)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/BillingTest/ListOrders')
+    expect(JSON.parse(String(init.body))).toEqual(payload)
+  })
+
+  it('keeps the HDP balance query on the Billing API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 1,
+      data: { productSource: ProductSource.Hdp, tenantId: 'tenant-1', balance: 10 },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const payload = { productSource: ProductSource.Hdp, tenantId: 'tenant-1' }
+
+    await getCreditPointBalance(payload, authorization)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/Payment/GetCreditPointBalance')
+    expect(JSON.parse(String(init.body))).toEqual(payload)
+  })
+
+  it('surfaces MDAPI envelope failures', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      state: 7,
+      exception: '权限不足',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+
+    await expect(getCreditPointOverview({
+      requestId: 'MDBillingPaymentWeb',
+      productSource: ProductSource.Hap,
+      tenantId: 'tenant-1',
+      createdFrom: 1,
+      createdTo: 2,
+    }, authorization)).rejects.toEqual(expect.objectContaining({
+      status: 200,
+      code: 7,
+      message: '权限不足',
+    }))
   })
 
   it('creates a test order with the grpc-shaped body and Authorization header', async () => {

@@ -36,6 +36,7 @@ const paymentMethods = {
 const terminalStatuses = new Set<BillingOrderStatus>([
   BillingOrderStatus.Paid,
   BillingOrderStatus.Completed,
+  BillingOrderStatus.Expired,
 ])
 
 function parseInitialQuery(): PaymentQuery {

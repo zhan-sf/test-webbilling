@@ -17,6 +17,7 @@ import type {
   ListOrdersRequest,
   PaymentQuery,
 } from './types'
+import { ProductSource } from './types'
 
 export class ApiError extends Error {
   readonly status: number
@@ -33,6 +34,30 @@ function validateAuthorization(authorization: string) {
 }
 
 async function request<T>(path: string, authorization: string, init: RequestInit): Promise<T> {
+  const { response, payload } = await send<ApiResult<T>>(path, authorization, init)
+  if (!response.ok || payload.code !== 1 || payload.data === undefined) {
+    const fallback = response.status === 401 ? 'Authorization 无效或已过期。' : 'Billing API 请求失败。'
+    throw new ApiError(payload.message?.trim() || fallback, response.status, payload.code)
+  }
+  return payload.data
+}
+
+interface MdApiResult<T> {
+  state: number
+  exception?: string
+  data?: T
+}
+
+async function requestMdApi<T>(path: string, authorization: string, init: RequestInit): Promise<T> {
+  const { response, payload } = await send<MdApiResult<T>>(path, authorization, init)
+  if (!response.ok || payload.state !== 1 || payload.data === undefined) {
+    const fallback = response.status === 401 ? 'Authorization 无效或已过期。' : 'MDAPI 请求失败。'
+    throw new ApiError(payload.exception?.trim() || fallback, response.status, payload.state)
+  }
+  return payload.data
+}
+
+async function send<T>(path: string, authorization: string, init: RequestInit) {
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
   headers.set('Authorization', validateAuthorization(authorization))
@@ -41,16 +66,12 @@ async function request<T>(path: string, authorization: string, init: RequestInit
   try { response = await fetch(path, { ...init, headers }) }
   catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error
-    throw new ApiError('无法连接 Billing API，请检查代理地址和后端服务。', 0)
+    throw new ApiError('无法连接后端接口，请检查代理地址和服务状态。', 0)
   }
-  let payload: ApiResult<T>
-  try { payload = await response.json() as ApiResult<T> }
-  catch { throw new ApiError(`Billing API 返回了无法解析的响应（HTTP ${response.status}）。`, response.status) }
-  if (!response.ok || payload.code !== 1 || payload.data === undefined) {
-    const fallback = response.status === 401 ? 'Authorization 无效或已过期。' : 'Billing API 请求失败。'
-    throw new ApiError(payload.message?.trim() || fallback, response.status, payload.code)
-  }
-  return payload.data
+  let payload: T
+  try { payload = await response.json() as T }
+  catch { throw new ApiError(`后端接口返回了无法解析的响应（HTTP ${response.status}）。`, response.status) }
+  return { response, payload }
 }
 
 export function getOrder(query: PaymentQuery, authorization: string, signal?: AbortSignal) {
@@ -65,6 +86,23 @@ export function createPayment(payload: CreatePaymentRequest, authorization: stri
 }
 
 export function listOrders(payload: ListOrdersRequest, authorization: string, signal?: AbortSignal) {
+  if (payload.productSource === ProductSource.Hap) {
+    return requestMdApi<ListOrdersData>('/mdapi/Billing/ListOrders', authorization, {
+      method: 'POST',
+      body: JSON.stringify({
+        projectId: payload.tenantId,
+        orderStatuses: payload.orderStatuses,
+        productCode: payload.productCode,
+        orderNo: payload.orderNo,
+        creatorAccountId: payload.creatorAccountId,
+        createdFrom: payload.createdFrom,
+        createdTo: payload.createdTo,
+        pageIndex: payload.page.pageIndex,
+        pageSize: payload.page.pageSize,
+      }),
+      signal,
+    })
+  }
   return request<ListOrdersData>('/api/BillingTest/ListOrders', authorization, {
     method: 'POST', body: JSON.stringify(payload), signal,
   })
@@ -81,6 +119,11 @@ export function getCreditPointBalance(
   authorization: string,
   signal?: AbortSignal,
 ) {
+  if (payload.productSource === ProductSource.Hap) {
+    return requestMdApi<CreditPointBalance>('/mdapi/Billing/GetCreditPointBalance', authorization, {
+      method: 'POST', body: JSON.stringify({ projectId: payload.tenantId }), signal,
+    })
+  }
   return request<CreditPointBalance>('/api/Payment/GetCreditPointBalance', authorization, {
     method: 'POST', body: JSON.stringify(payload), signal,
   })
@@ -91,6 +134,23 @@ export function listCreditPoints(
   authorization: string,
   signal?: AbortSignal,
 ) {
+  if (payload.productSource === ProductSource.Hap) {
+    return requestMdApi<GetListCreditPointsData>('/mdapi/Billing/GetListCreditPoints', authorization, {
+      method: 'POST',
+      body: JSON.stringify({
+        projectId: payload.tenantId,
+        transactionType: payload.transactionType,
+        businessType: payload.businessType,
+        operatorAccountId: payload.operatorAccountId,
+        createdFrom: payload.createdFrom,
+        createdTo: payload.createdTo,
+        extensionFilters: payload.extensionFilters,
+        pageIndex: payload.page.pageIndex,
+        pageSize: payload.page.pageSize,
+      }),
+      signal,
+    })
+  }
   return request<GetListCreditPointsData>('/api/BillingTest/GetListCreditPoints', authorization, {
     method: 'POST', body: JSON.stringify(payload), signal,
   })
@@ -101,6 +161,17 @@ export function getCreditPointOverview(
   authorization: string,
   signal?: AbortSignal,
 ) {
+  if (payload.productSource === ProductSource.Hap) {
+    return requestMdApi<CreditPointOverview>('/mdapi/Billing/GetCreditPointOverview', authorization, {
+      method: 'POST',
+      body: JSON.stringify({
+        projectId: payload.tenantId,
+        createdFrom: payload.createdFrom,
+        createdTo: payload.createdTo,
+      }),
+      signal,
+    })
+  }
   return request<CreditPointOverview>('/api/BillingTest/GetCreditPointOverview', authorization, {
     method: 'POST', body: JSON.stringify(payload), signal,
   })
@@ -111,6 +182,30 @@ export function getCreditPointStatistics(
   authorization: string,
   signal?: AbortSignal,
 ) {
+  if (payload.productSource === ProductSource.Hap) {
+    return requestMdApi<GetCreditPointStatisticsData>(
+      '/mdapi/Billing/GetCreditPointStatistics',
+      authorization,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: payload.tenantId,
+          transactionType: payload.transactionType,
+          businessTypes: payload.businessTypes,
+          createdFrom: payload.createdFrom,
+          createdTo: payload.createdTo,
+          extensionFilters: payload.extensionFilters,
+          groupByBusinessType: payload.groupByBusinessType,
+          groupByExtensionField: payload.groupByExtensionField,
+          granularity: payload.granularity,
+          refundFilter: payload.refundFilter,
+          pageIndex: payload.page.pageIndex,
+          pageSize: payload.page.pageSize,
+        }),
+        signal,
+      },
+    )
+  }
   return request<GetCreditPointStatisticsData>(
     '/api/BillingTest/GetCreditPointStatistics',
     authorization,

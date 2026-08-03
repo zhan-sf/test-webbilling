@@ -43,8 +43,8 @@ button:disabled { opacity: 0.48; cursor: not-allowed; }
 .order-summary, .payment-section { padding: var(--space-xl); }
 .summary-heading { margin-bottom: var(--space-xl); }
 .order-status { min-height: 30px; padding: 0 var(--space-sm); border-radius: 999px; display: inline-flex; align-items: center; color: var(--color-warning-ink); background: var(--color-warning-bg); font-size: var(--text-sm); font-weight: 700; white-space: nowrap; }
-.status-2, .status-3, .status-4 { color: var(--color-success-ink); background: var(--color-success-bg); }
-.status-5 { color: var(--color-danger-ink); background: var(--color-danger-bg); }
+.status-2, .status-3 { color: var(--color-success-ink); background: var(--color-success-bg); }
+.status-4, .status-5 { color: var(--color-danger-ink); background: var(--color-danger-bg); }
 .order-facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-xl); row-gap: var(--space-md); }
 .order-facts > div { min-width: 0; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: var(--space-sm); }
 .order-facts dt { color: var(--color-muted); }

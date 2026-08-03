@@ -7,6 +7,7 @@ import {
 } from './api'
 import {
   ProductSource,
+  BillingOrderStatus,
   CreditPointBusinessType,
   CreditPointTransactionType,
   type BillingOrder,
@@ -43,7 +44,12 @@ const productCodes = [
   { value: 20201, source: ProductSource.Hdp, label: '20201 · HDP 信用点充值' },
 ]
 
-const orderStatusOptions = [1, 2, 3]
+const orderStatusOptions = [
+  BillingOrderStatus.PendingPayment,
+  BillingOrderStatus.Paid,
+  BillingOrderStatus.Completed,
+  BillingOrderStatus.Expired,
+]
 const transactionTypeOptions = [
   CreditPointTransactionType.Income,
   CreditPointTransactionType.Expense,
@@ -200,11 +206,17 @@ function RecordsPage() {
         setBalance(null)
       } else {
         const filters = parseExtensionFilters(extensionFilters)
+        setBalance(null)
         const [balanceResult, listResult] = await Promise.all([
           getCreditPointBalance({
             productSource: common.productSource,
             tenantId: common.tenantId,
-          }, normalizedAuthorization, controller.signal),
+          }, normalizedAuthorization, controller.signal).catch((balanceError) => {
+            if (balanceError instanceof Error && balanceError.name === 'AbortError') {
+              throw balanceError
+            }
+            return null
+          }),
           listCreditPoints({
             ...common,
             transactionType: activeTab === 'refunds'
@@ -334,7 +346,7 @@ function RecordsPage() {
               <div className="workspace-balance" aria-label="当前信用点余额">
                 <span>当前余额</span>
                 <strong>{formatValue(balance.balance)}</strong>
-                <small>{formatTime(balance.updatedAt)} 更新</small>
+                <small>{balance.updateTime || formatTime(balance.updatedAt ?? 0)} 更新</small>
               </div>
             )}
           </div>

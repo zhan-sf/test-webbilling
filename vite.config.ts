@@ -11,6 +11,12 @@ export default defineConfig(({ mode }) => {
       secure: env.PAYMENT_API_TLS_VERIFY !== 'false',
       rewrite: (path: string) => path.replace(/^\/api/, ''),
     },
+    '/mdapi': {
+      target: env.MD_WEB_API_TARGET || 'http://localhost:6999',
+      changeOrigin: true,
+      secure: env.MD_WEB_API_TLS_VERIFY !== 'false',
+      rewrite: (path: string) => path.replace(/^\/mdapi/, ''),
+    },
   }
 
   return {

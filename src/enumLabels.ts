@@ -17,6 +17,7 @@ export const orderStatusLabels: Record<number, string> = {
   [BillingOrderStatus.PendingPayment]: '待支付',
   [BillingOrderStatus.Paid]: '已支付',
   [BillingOrderStatus.Completed]: '订单已完成',
+  [BillingOrderStatus.Expired]: '已过期',
 }
 
 export const paymentMethodLabels: Record<number, string> = {

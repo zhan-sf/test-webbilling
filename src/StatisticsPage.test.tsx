@@ -11,25 +11,32 @@ function jsonResponse(data: unknown) {
   })
 }
 
+function mdApiResponse(data: unknown) {
+  return new Response(JSON.stringify({ state: 1, data }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 const page = { totalCount: 1, pageIndex: 1, pageSize: 200 }
 
 describe('credit point statistics page', () => {
   it('loads overview and product-aware aggregate reports', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         periodConsumption: 12.5,
         totalRecharge: 1000,
         totalConsumption: 320.75,
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           businessType: CreditPointBusinessType.Aigc, extensionData: {}, totalAmount: 12.5,
           totalQuantity: 3, totalCount: 2, points: [],
         }],
         page,
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           businessType: CreditPointBusinessType.Aigc, extensionData: {}, totalAmount: 12.5,
           totalQuantity: 3, totalCount: 2,
@@ -37,14 +44,14 @@ describe('credit point statistics page', () => {
         }],
         page,
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           businessType: CreditPointBusinessType.Aigc, extensionData: { appId: 'app-1' }, totalAmount: 12.5,
           totalQuantity: 3, totalCount: 2, points: [],
         }],
         page,
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           businessType: 0, extensionData: { modelName: 'Qwen' }, totalAmount: 8,
           totalQuantity: 2, totalCount: 1,
@@ -52,7 +59,7 @@ describe('credit point statistics page', () => {
         }],
         page,
       }))
-      .mockResolvedValueOnce(jsonResponse({
+      .mockResolvedValueOnce(mdApiResponse({
         items: [{
           businessType: 0, extensionData: { mingoScene: '应用搭建' }, totalAmount: 4.5,
           totalQuantity: 1, totalCount: 1, points: [],
@@ -74,19 +81,22 @@ describe('credit point statistics page', () => {
     expect(within(screen.getByRole('table')).getByText('app-1')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(6)
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
-      '/api/BillingTest/GetCreditPointOverview',
-      '/api/BillingTest/GetCreditPointStatistics',
-      '/api/BillingTest/GetCreditPointStatistics',
-      '/api/BillingTest/GetCreditPointStatistics',
-      '/api/BillingTest/GetCreditPointStatistics',
-      '/api/BillingTest/GetCreditPointStatistics',
+      '/mdapi/Billing/GetCreditPointOverview',
+      '/mdapi/Billing/GetCreditPointStatistics',
+      '/mdapi/Billing/GetCreditPointStatistics',
+      '/mdapi/Billing/GetCreditPointStatistics',
+      '/mdapi/Billing/GetCreditPointStatistics',
+      '/mdapi/Billing/GetCreditPointStatistics',
     ])
     const appRequest = JSON.parse(String((fetchMock.mock.calls[3][1] as RequestInit).body))
     expect(appRequest).toEqual(expect.objectContaining({
+      projectId: 'tenant-1',
       transactionType: 2,
       groupByBusinessType: true,
       groupByExtensionField: 'appId',
       granularity: 0,
+      pageIndex: 1,
+      pageSize: 200,
     }))
   })
 
