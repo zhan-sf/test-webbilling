@@ -5,6 +5,7 @@ import {
   getCreditPointBalance,
   getCreditPointOverview,
   getCreditPointStatistics,
+  getCreditPointStatisticsSummary,
   getOrder,
   getSafeRedirectUrl,
   listCreditPoints,
@@ -91,8 +92,8 @@ describe('Billing API client', () => {
       productCode: 10101,
       orderNo: '',
       creatorAccountId: '',
-      createdFrom: 0,
-      createdTo: 0,
+      createdFrom: '',
+      createdTo: '',
       page: { pageIndex: 1, pageSize: 20 },
     }, authorization)
     const balance = await getCreditPointBalance({
@@ -102,29 +103,28 @@ describe('Billing API client', () => {
     await listCreditPoints({
       ...common,
       transactionType: CreditPointTransactionType.Refund,
-      businessType: CreditPointBusinessType.Unspecified,
+      businessTypes: [CreditPointBusinessType.Aigc, CreditPointBusinessType.Email],
       operatorAccountId: '',
-      createdFrom: 0,
-      createdTo: 0,
+      createdFrom: '',
+      createdTo: '',
       extensionFilters: {},
       page: { pageIndex: 1, pageSize: 20 },
     }, authorization)
     await getCreditPointOverview({
       ...common,
-      createdFrom: 1_700_000_000_000,
-      createdTo: 1_700_100_000_000,
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-03',
     }, authorization)
     await getCreditPointStatistics({
       ...common,
       transactionType: 2,
       businessTypes: [CreditPointBusinessType.Aigc],
-      createdFrom: 1_700_000_000_000,
-      createdTo: 1_700_100_000_000,
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-03',
       extensionFilters: {},
       groupByBusinessType: true,
       groupByExtensionField: 'modelName',
-      granularity: 2,
-      refundFilter: 1,
+      granularity: 1,
       page: { pageIndex: 1, pageSize: 200 },
     }, authorization)
 
@@ -142,8 +142,8 @@ describe('Billing API client', () => {
       productCode: 10101,
       orderNo: '',
       creatorAccountId: '',
-      createdFrom: 0,
-      createdTo: 0,
+      createdFrom: '',
+      createdTo: '',
       pageIndex: 1,
       pageSize: 20,
     })
@@ -152,6 +152,11 @@ describe('Billing API client', () => {
     expect(balance.updateTime).toBe('2025-07-22 08:00:00')
     const refundBody = JSON.parse(String((fetchMock.mock.calls[2][1] as RequestInit).body))
     expect(refundBody.transactionType).toBe(CreditPointTransactionType.Refund)
+    expect(refundBody.businessTypes).toEqual([
+      CreditPointBusinessType.Aigc,
+      CreditPointBusinessType.Email,
+    ])
+    expect(refundBody).not.toHaveProperty('businessType')
     expect(refundBody).not.toHaveProperty('requestId')
     expect(refundBody).not.toHaveProperty('productSource')
     expect(refundBody).not.toHaveProperty('tenantId')
@@ -161,10 +166,18 @@ describe('Billing API client', () => {
       pageIndex: 1,
       pageSize: 20,
     }))
+    const overviewBody = JSON.parse(String((fetchMock.mock.calls[3][1] as RequestInit).body))
+    expect(overviewBody).toEqual({
+      projectId: 'tenant-1',
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-03',
+    })
     const statisticsBody = JSON.parse(String((fetchMock.mock.calls[4][1] as RequestInit).body))
     expect(statisticsBody.groupByExtensionField).toBe('modelName')
     expect(statisticsBody).toEqual(expect.objectContaining({
       projectId: 'tenant-1',
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-03',
       pageIndex: 1,
       pageSize: 200,
     }))
@@ -184,8 +197,8 @@ describe('Billing API client', () => {
       productCode: 0,
       orderNo: '',
       creatorAccountId: '',
-      createdFrom: 0,
-      createdTo: 0,
+      createdFrom: '2026-08-01T08:30',
+      createdTo: '2026-08-02T17:45',
       page: { pageIndex: 2, pageSize: 20 },
     }
 
@@ -193,7 +206,11 @@ describe('Billing API client', () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('/api/BillingTest/ListOrders')
-    expect(JSON.parse(String(init.body))).toEqual(payload)
+    expect(JSON.parse(String(init.body))).toEqual({
+      ...payload,
+      createdFrom: Date.parse('2026-08-01T08:30+08:00'),
+      createdTo: Date.parse('2026-08-02T17:45+08:00'),
+    })
   })
 
   it('keeps the HDP balance query on the Billing API', async () => {
@@ -211,6 +228,97 @@ describe('Billing API client', () => {
     expect(JSON.parse(String(init.body))).toEqual(payload)
   })
 
+  it('converts HDP statistic dates from UTC+8 natural days to timestamps', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      code: 1,
+      data: { items: [], page: { totalCount: 0, pageIndex: 1, pageSize: 20 } },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    vi.stubGlobal('fetch', fetchMock)
+    const common = {
+      requestId: 'MDBillingPaymentWeb',
+      productSource: ProductSource.Hdp,
+      tenantId: 'tenant-1',
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-04',
+    }
+
+    await getCreditPointOverview(common, authorization)
+    await getCreditPointStatistics({
+      ...common,
+      transactionType: CreditPointTransactionType.Expense,
+      businessTypes: [],
+      extensionFilters: {},
+      groupByBusinessType: true,
+      groupByExtensionField: '',
+      granularity: 1,
+      page: { pageIndex: 1, pageSize: 20 },
+    }, authorization)
+
+    for (const call of fetchMock.mock.calls) {
+      const body = JSON.parse(String((call[1] as RequestInit).body))
+      expect(body.createdFrom).toBe(1_785_513_600_000)
+      expect(body.createdTo).toBe(1_785_772_800_000)
+    }
+  })
+
+  it('uses the MDAPI summary endpoint for HAP statistics', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      state: 1,
+      data: {
+        distribution: { items: [], page: {} },
+        scenes: { items: [], page: {} },
+        trend: { items: [], page: {} },
+        models: { items: [], page: {} },
+        applications: { items: [], page: {} },
+      },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getCreditPointStatisticsSummary({
+      requestId: 'MDBillingPaymentWeb',
+      productSource: ProductSource.Hap,
+      tenantId: 'tenant-1',
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-04',
+    }, authorization)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/mdapi/Billing/GetCreditPointStatisticsSummary')
+    expect(JSON.parse(String(init.body))).toEqual({
+      projectId: 'tenant-1',
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-04',
+    })
+  })
+
+  it('keeps the five HDP statistic queries on BillingTest', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      code: 1,
+      data: { items: [], page: { totalCount: 0, pageIndex: 1, pageSize: 200 } },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getCreditPointStatisticsSummary({
+      requestId: 'MDBillingPaymentWeb',
+      productSource: ProductSource.Hdp,
+      tenantId: 'tenant-1',
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-04',
+    }, authorization)
+
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual(Array(5)
+      .fill('/api/BillingTest/GetCreditPointStatistics'))
+    const bodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse(String((call[1] as RequestInit).body)))
+    expect(bodies[1].groupByExtensionField).toBe('resourceType')
+    expect(bodies[4].groupByExtensionField).toBe('workspaceId')
+    for (const body of bodies) {
+      expect(body.createdFrom).toBe(1_785_513_600_000)
+      expect(body.createdTo).toBe(1_785_772_800_000)
+    }
+  })
+
   it('surfaces MDAPI envelope failures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       state: 7,
@@ -221,8 +329,8 @@ describe('Billing API client', () => {
       requestId: 'MDBillingPaymentWeb',
       productSource: ProductSource.Hap,
       tenantId: 'tenant-1',
-      createdFrom: 1,
-      createdTo: 2,
+      createdFrom: '2026-08-01',
+      createdTo: '2026-08-03',
     }, authorization)).rejects.toEqual(expect.objectContaining({
       status: 200,
       code: 7,
@@ -250,6 +358,7 @@ describe('Billing API client', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('/api/BillingTest/CreateOrder')
     expect(new Headers(init.headers).get('Authorization')).toBe(authorization)
+    expect(init.credentials).toBe('omit')
     expect(JSON.parse(String(init.body))).toEqual({
       requestId: 'MDBillingPaymentWeb',
       productSource: 1,

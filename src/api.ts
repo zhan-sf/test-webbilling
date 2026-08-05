@@ -6,9 +6,11 @@ import type {
   CreatePaymentResponse,
   CreditPointBalance,
   CreditPointOverview,
+  CreditPointStatisticsSummary,
   GetCreditPointOverviewRequest,
   GetCreditPointStatisticsData,
   GetCreditPointStatisticsRequest,
+  GetCreditPointStatisticsSummaryRequest,
   GetCreditPointBalanceRequest,
   GetListCreditPointsData,
   GetListCreditPointsRequest,
@@ -17,7 +19,14 @@ import type {
   ListOrdersRequest,
   PaymentQuery,
 } from './types'
-import { ProductSource } from './types'
+import {
+  CreditPointBusinessType,
+  CreditPointStatisticGranularity,
+  CreditPointTransactionType,
+  ProductSource,
+  type CreditPointBusinessType as CreditPointBusinessTypeValue,
+  type CreditPointStatisticGranularity as CreditPointStatisticGranularityValue,
+} from './types'
 
 export class ApiError extends Error {
   readonly status: number
@@ -31,6 +40,20 @@ function validateAuthorization(authorization: string) {
   const normalized = authorization.trim()
   if (!/^md_pss_id\s+\S+$/.test(normalized)) throw new ApiError('Authorization 格式应为 md_pss_id {sessionId}。', 0)
   return normalized
+}
+
+function toUtc8DateTimestamp(value: string) {
+  const timestamp = Date.parse(`${value}T00:00:00.000+08:00`)
+  if (!Number.isFinite(timestamp)) throw new ApiError('统计日期格式应为 yyyy-MM-dd。', 0)
+  return timestamp
+}
+
+function toUtc8TimeTimestamp(value: string) {
+  if (!value) return 0
+  const dateTime = value.includes('T') ? value : `${value}T00:00:00`
+  const timestamp = Date.parse(`${dateTime}+08:00`)
+  if (!Number.isFinite(timestamp)) throw new ApiError('时间格式无效。', 0)
+  return timestamp
 }
 
 async function request<T>(path: string, authorization: string, init: RequestInit): Promise<T> {
@@ -63,7 +86,7 @@ async function send<T>(path: string, authorization: string, init: RequestInit) {
   headers.set('Authorization', validateAuthorization(authorization))
   if (init.body) headers.set('Content-Type', 'application/json')
   let response: Response
-  try { response = await fetch(path, { ...init, headers }) }
+  try { response = await fetch(path, { ...init, headers, credentials: 'omit' }) }
   catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error
     throw new ApiError('无法连接后端接口，请检查代理地址和服务状态。', 0)
@@ -104,7 +127,13 @@ export function listOrders(payload: ListOrdersRequest, authorization: string, si
     })
   }
   return request<ListOrdersData>('/api/BillingTest/ListOrders', authorization, {
-    method: 'POST', body: JSON.stringify(payload), signal,
+    method: 'POST',
+    body: JSON.stringify({
+      ...payload,
+      createdFrom: toUtc8TimeTimestamp(payload.createdFrom),
+      createdTo: toUtc8TimeTimestamp(payload.createdTo),
+    }),
+    signal,
   })
 }
 
@@ -140,7 +169,7 @@ export function listCreditPoints(
       body: JSON.stringify({
         projectId: payload.tenantId,
         transactionType: payload.transactionType,
-        businessType: payload.businessType,
+        businessTypes: payload.businessTypes,
         operatorAccountId: payload.operatorAccountId,
         createdFrom: payload.createdFrom,
         createdTo: payload.createdTo,
@@ -152,7 +181,13 @@ export function listCreditPoints(
     })
   }
   return request<GetListCreditPointsData>('/api/BillingTest/GetListCreditPoints', authorization, {
-    method: 'POST', body: JSON.stringify(payload), signal,
+    method: 'POST',
+    body: JSON.stringify({
+      ...payload,
+      createdFrom: toUtc8TimeTimestamp(payload.createdFrom),
+      createdTo: toUtc8TimeTimestamp(payload.createdTo),
+    }),
+    signal,
   })
 }
 
@@ -173,7 +208,13 @@ export function getCreditPointOverview(
     })
   }
   return request<CreditPointOverview>('/api/BillingTest/GetCreditPointOverview', authorization, {
-    method: 'POST', body: JSON.stringify(payload), signal,
+    method: 'POST',
+    body: JSON.stringify({
+      ...payload,
+      createdFrom: toUtc8DateTimestamp(payload.createdFrom),
+      createdTo: toUtc8DateTimestamp(payload.createdTo),
+    }),
+    signal,
   })
 }
 
@@ -198,7 +239,6 @@ export function getCreditPointStatistics(
           groupByBusinessType: payload.groupByBusinessType,
           groupByExtensionField: payload.groupByExtensionField,
           granularity: payload.granularity,
-          refundFilter: payload.refundFilter,
           pageIndex: payload.page.pageIndex,
           pageSize: payload.page.pageSize,
         }),
@@ -209,8 +249,68 @@ export function getCreditPointStatistics(
   return request<GetCreditPointStatisticsData>(
     '/api/BillingTest/GetCreditPointStatistics',
     authorization,
-    { method: 'POST', body: JSON.stringify(payload), signal },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        createdFrom: toUtc8DateTimestamp(payload.createdFrom),
+        createdTo: toUtc8DateTimestamp(payload.createdTo),
+      }),
+      signal,
+    },
   )
+}
+
+export async function getCreditPointStatisticsSummary(
+  payload: GetCreditPointStatisticsSummaryRequest,
+  authorization: string,
+  signal?: AbortSignal,
+) {
+  if (payload.productSource === ProductSource.Hap) {
+    return requestMdApi<CreditPointStatisticsSummary>(
+      '/mdapi/Billing/GetCreditPointStatisticsSummary',
+      authorization,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: payload.tenantId,
+          createdFrom: payload.createdFrom,
+          createdTo: payload.createdTo,
+        }),
+        signal,
+      },
+    )
+  }
+
+  const common = {
+    ...payload,
+    transactionType: CreditPointTransactionType.Expense,
+    businessTypes: [] as CreditPointBusinessTypeValue[],
+    extensionFilters: {},
+    page: { pageIndex: 1, pageSize: 200 },
+  }
+  const aggregate = (
+    groupByBusinessType: boolean,
+    groupByExtensionField: string,
+    granularity: CreditPointStatisticGranularityValue,
+    businessTypes: CreditPointBusinessTypeValue[] = [],
+  ) => getCreditPointStatistics({
+    ...common,
+    businessTypes,
+    groupByBusinessType,
+    groupByExtensionField,
+    granularity,
+  }, authorization, signal)
+
+  const [distribution, scenes, trend, models, applications] = await Promise.all([
+    aggregate(true, '', CreditPointStatisticGranularity.None),
+    aggregate(false, 'resourceType', CreditPointStatisticGranularity.None),
+    aggregate(true, '', CreditPointStatisticGranularity.Day),
+    aggregate(false, 'modelName', CreditPointStatisticGranularity.Day,
+      [CreditPointBusinessType.Aigc]),
+    aggregate(true, 'workspaceId', CreditPointStatisticGranularity.None),
+  ])
+  return { distribution, scenes, trend, models, applications }
 }
 
 export function getSafeRedirectUrl(value?: string) {

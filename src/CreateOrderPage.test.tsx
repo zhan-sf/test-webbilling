@@ -14,7 +14,7 @@ describe('create order page', () => {
         orderNo: 'B001',
         productSource: 2,
         tenantId: 'tenant-1',
-        item: { productCode: 20201, productName: 'HDP信用点充值', quantity: 1, unitPrice: 0.01 },
+        item: { productCode: 20003, productName: '信用点充值', quantity: 1, unitPrice: 0.01 },
         totalAmount: 0.01,
         orderStatus: 1,
         paymentMethod: 0,
@@ -28,9 +28,9 @@ describe('create order page', () => {
     render(<CreateOrderPage navigate={navigate} />)
 
     await user.type(screen.getByLabelText('Authorization'), 'md_pss_id session-token')
-    await user.click(screen.getByText('HDP 信用点充值'))
+    await user.click(screen.getByText('信用点充值'))
     await user.type(screen.getByLabelText('Tenant ID'), 'tenant-1')
-    await user.type(screen.getByLabelText('订单金额'), '0.01')
+    expect(screen.getByLabelText('订单金额')).toHaveValue(0.01)
     await user.click(screen.getByRole('button', { name: '创建订单并去支付' }))
 
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -40,7 +40,7 @@ describe('create order page', () => {
       requestId: 'MDBillingPaymentWeb',
       productSource: 2,
       tenantId: 'tenant-1',
-      productCode: 20201,
+      productCode: 20003,
       quantity: 1,
       totalAmount: 0.01,
       businessContext: {},
@@ -50,6 +50,18 @@ describe('create order page', () => {
     )
     expect(sessionStorage.getItem(TENANT_ID_STORAGE_KEY)).toBe('tenant-1')
     expect(localStorage.length).toBe(0)
+  })
+
+  it('shows the current HDP product catalog', () => {
+    render(<CreateOrderPage />)
+
+    expect(screen.getByText('新购-专业版')).toBeInTheDocument()
+    expect(screen.getByText('续费-专业版')).toBeInTheDocument()
+    expect(screen.getByText('信用点充值')).toBeInTheDocument()
+    expect(screen.getByText('本月算力增补')).toBeInTheDocument()
+    expect(screen.getByText('每月算力增补')).toBeInTheDocument()
+    expect(screen.getByText('协作人数增补')).toBeInTheDocument()
+    expect(screen.queryByText('HDP 用户扩展包')).not.toBeInTheDocument()
   })
 
   it('prefills and updates the shared Tenant ID', async () => {

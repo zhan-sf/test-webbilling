@@ -18,6 +18,7 @@
 * { box-sizing: border-box; }
 html, body { min-width: 320px; min-height: 100%; background: var(--color-bg); }
 body { min-height: 100vh; margin: 0; }
+.route-loading { min-height: 100svh; display: grid; place-items: center; color: var(--color-muted-strong); background: var(--color-bg); }
 button, input { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 ::selection { color: var(--color-ink); background: var(--color-primary-soft-strong); }

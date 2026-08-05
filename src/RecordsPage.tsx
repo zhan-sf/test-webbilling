@@ -39,9 +39,12 @@ const productCodes = [
   { value: 10102, source: ProductSource.Hap, label: '10102 · HAP 应用扩展包' },
   { value: 10103, source: ProductSource.Hap, label: '10103 · HAP 工作流扩展包' },
   { value: 10201, source: ProductSource.Hap, label: '10201 · HAP 信用点充值' },
-  { value: 20001, source: ProductSource.Hdp, label: '20001 · HDP 主版本授权' },
-  { value: 20101, source: ProductSource.Hdp, label: '20101 · HDP 用户扩展包' },
-  { value: 20201, source: ProductSource.Hdp, label: '20201 · HDP 信用点充值' },
+  { value: 20001, source: ProductSource.Hdp, label: '20001 · 新购-专业版' },
+  { value: 20002, source: ProductSource.Hdp, label: '20002 · 续费-专业版' },
+  { value: 20003, source: ProductSource.Hdp, label: '20003 · 信用点充值' },
+  { value: 20004, source: ProductSource.Hdp, label: '20004 · 本月算力增补' },
+  { value: 20005, source: ProductSource.Hdp, label: '20005 · 每月算力增补' },
+  { value: 20006, source: ProductSource.Hdp, label: '20006 · 协作人数增补' },
 ]
 
 const orderStatusOptions = [
@@ -57,12 +60,6 @@ const transactionTypeOptions = [
 ]
 const businessTypeOptions = Object.values(CreditPointBusinessType)
   .filter((value) => value !== CreditPointBusinessType.Unspecified)
-
-function toTimestamp(value: string) {
-  if (!value) return 0
-  const timestamp = new Date(value).getTime()
-  return Number.isFinite(timestamp) ? timestamp : 0
-}
 
 function formatTime(timestamp: number) {
   if (!timestamp) return '—'
@@ -98,6 +95,83 @@ function parseExtensionFilters(value: string) {
   return Object.fromEntries(Object.entries(parsed).map(([key, item]) => [key, String(item)]))
 }
 
+function BusinessTypeMultiSelect({
+  value,
+  onChange,
+}: {
+  value: CreditPointBusinessType[]
+  onChange: (value: CreditPointBusinessType[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [keyword, setKeyword] = useState('')
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const visibleOptions = businessTypeOptions.filter((type) => getEnumLabel(
+    creditPointBusinessTypeLabels,
+    type,
+  ).toLocaleLowerCase().includes(keyword.trim().toLocaleLowerCase()))
+  const selectedLabels = value.map((type) => getEnumLabel(creditPointBusinessTypeLabels, type))
+  const summary = selectedLabels.length === 0
+    ? '全部业务类型'
+    : selectedLabels.length <= 2
+      ? selectedLabels.join('、')
+      : `${selectedLabels[0]} 等 ${selectedLabels.length} 项`
+
+  useEffect(() => {
+    if (!open) return
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  const toggle = (type: CreditPointBusinessType) => {
+    onChange(value.includes(type)
+      ? value.filter((item) => item !== type)
+      : [...value, type])
+  }
+
+  return <div className="business-type-picker" ref={rootRef}>
+    <button ref={triggerRef} className="business-type-trigger" type="button"
+      aria-expanded={open} aria-haspopup="dialog"
+      aria-label={`选择业务类型，当前：${summary}`}
+      onClick={() => setOpen((current) => !current)}>
+      <span className={value.length ? '' : 'placeholder'}>{summary}</span>
+      {value.length > 0 && <strong>{value.length}</strong>}
+      <i aria-hidden="true" />
+    </button>
+    {open && <div className="business-type-menu" role="dialog" aria-label="业务类型筛选">
+      <div className="business-type-menu-header">
+        <strong>选择业务类型</strong>
+        <button type="button" disabled={!value.length} onClick={() => onChange([])}>清空</button>
+      </div>
+      <input className="business-type-search" value={keyword}
+        onChange={(event) => setKeyword(event.target.value)}
+        placeholder="搜索业务类型" aria-label="搜索业务类型" autoFocus />
+      <div className="business-type-options" role="group" aria-label="可选业务类型">
+        {visibleOptions.map((type) => {
+          const label = getEnumLabel(creditPointBusinessTypeLabels, type)
+          return <label className="business-type-option" key={type}>
+            <input type="checkbox" checked={value.includes(type)} onChange={() => toggle(type)} />
+            <span>{label}</span>
+          </label>
+        })}
+        {!visibleOptions.length && <p className="business-type-empty">没有匹配的业务类型</p>}
+      </div>
+    </div>}
+  </div>
+}
+
 function RecordsPage() {
   const [activeTab, setActiveTab] = useState<RecordsTab>('orders')
   const [authorization, setAuthorization] = useState(
@@ -119,9 +193,7 @@ function RecordsPage() {
   const [transactionType, setTransactionType] = useState<CreditPointTransactionType>(
     CreditPointTransactionType.Unspecified,
   )
-  const [businessType, setBusinessType] = useState<CreditPointBusinessType>(
-    CreditPointBusinessType.Unspecified,
-  )
+  const [businessTypes, setBusinessTypes] = useState<CreditPointBusinessType[]>([])
   const [operatorAccountId, setOperatorAccountId] = useState('')
   const [extensionFilters, setExtensionFilters] = useState('')
   const [orders, setOrders] = useState<ListOrdersData | null>(null)
@@ -197,8 +269,8 @@ function RecordsPage() {
           productCode,
           orderNo: orderNo.trim(),
           creatorAccountId: creatorAccountId.trim(),
-          createdFrom: toTimestamp(createdFrom),
-          createdTo: toTimestamp(createdTo),
+          createdFrom,
+          createdTo,
           page: { pageIndex, pageSize },
         }, normalizedAuthorization, controller.signal)
         setOrders(result)
@@ -222,10 +294,10 @@ function RecordsPage() {
             transactionType: activeTab === 'refunds'
               ? CreditPointTransactionType.Refund
               : transactionType,
-            businessType,
+            businessTypes,
             operatorAccountId: operatorAccountId.trim(),
-            createdFrom: toTimestamp(createdFrom),
-            createdTo: toTimestamp(createdTo),
+            createdFrom,
+            createdTo,
             extensionFilters: filters,
             page: { pageIndex, pageSize },
           }, normalizedAuthorization, controller.signal),
@@ -415,16 +487,7 @@ function RecordsPage() {
                 </label>
                 <label className="query-field">
                   <span>业务类型</span>
-                  <select value={businessType} onChange={(event) => setBusinessType(
-                    Number(event.target.value) as CreditPointBusinessType,
-                  )}>
-                    <option value={0}>全部</option>
-                    {businessTypeOptions.map((value) => (
-                      <option key={value} value={value}>
-                        {getEnumLabel(creditPointBusinessTypeLabels, value)}
-                      </option>
-                    ))}
-                  </select>
+                  <BusinessTypeMultiSelect value={businessTypes} onChange={setBusinessTypes} />
                 </label>
                 <label className="query-field query-field-wide">
                   <span>操作人账户 ID</span>
@@ -512,7 +575,7 @@ function OrdersTable({
           <tbody>
             {data.items.map((item) => (
               <tr key={item.orderId}>
-                <td>{formatTime(item.createdAt)}</td>
+                <td>{item.createTime?.trim() || formatTime(item.createdAt ?? 0)}</td>
                 <td><strong>{item.orderNo || '—'}</strong><small>{item.orderId}</small></td>
                 <td><strong>{item.item?.productName || '—'}</strong><small>{item.item?.productCode ?? '—'}</small></td>
                 <td><strong>{formatValue(item.totalAmount, 2)}</strong></td>
@@ -561,7 +624,7 @@ function CreditTable({
           <tbody>
             {data.items.map((item) => (
               <tr key={item.id}>
-                <td>{formatTime(item.createdAt)}</td>
+                <td>{item.createTime?.trim() || formatTime(item.createdAt ?? 0)}</td>
                 <td className="mono-cell">{item.id}</td>
                 {refundView && <td className="mono-cell">{item.originalEntryId || '—'}</td>}
                 <td><span className="enum-label">
@@ -570,7 +633,7 @@ function CreditTable({
                 <td><span className="enum-label">
                   {getEnumLabel(creditPointBusinessTypeLabels, item.businessType)}
                 </span></td>
-                <td><strong>{item.transactionType === CreditPointTransactionType.Expense ? '−' : '+'}{formatValue(item.amount)}</strong></td>
+                <td><strong>{formatValue(item.amount)}</strong></td>
                 <td>{formatValue(item.balanceAfter)}</td>
                 <td className="mono-cell">{item.operatorAccountId || '—'}</td>
                 <td>{item.remark || '—'}</td>
@@ -624,6 +687,7 @@ function CreditInspector({ entry }: { entry: CreditPointEntry }) {
     ['操作人账户 ID', entry.operatorAccountId || '—'],
     ['交易类型', getEnumLabel(creditPointTransactionTypeLabels, entry.transactionType)],
     ['业务类型', getEnumLabel(creditPointBusinessTypeLabels, entry.businessType)],
+    ['变动值', entry.amount],
     ['变动前余额', entry.balanceBefore],
     ['变动后余额', entry.balanceAfter],
     ['数量', entry.quantity],

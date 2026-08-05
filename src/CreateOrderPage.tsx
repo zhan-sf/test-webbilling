@@ -15,9 +15,12 @@ const products = [
   { code: 10102, source: ProductSource.Hap, name: 'HAP 应用扩展包', note: '现金或信用点' },
   { code: 10103, source: ProductSource.Hap, name: 'HAP 工作流扩展包', note: '现金或信用点' },
   { code: 10201, source: ProductSource.Hap, name: 'HAP 信用点充值', note: '现金支付' },
-  { code: 20001, source: ProductSource.Hdp, name: 'HDP 主版本授权', note: '现金支付' },
-  { code: 20101, source: ProductSource.Hdp, name: 'HDP 用户扩展包', note: '现金或信用点' },
-  { code: 20201, source: ProductSource.Hdp, name: 'HDP 信用点充值', note: '现金支付' },
+  { code: 20001, source: ProductSource.Hdp, name: '新购-专业版', note: '现金支付' },
+  { code: 20002, source: ProductSource.Hdp, name: '续费-专业版', note: '现金支付' },
+  { code: 20003, source: ProductSource.Hdp, name: '信用点充值', note: '现金支付' },
+  { code: 20004, source: ProductSource.Hdp, name: '本月算力增补', note: '现金或信用点' },
+  { code: 20005, source: ProductSource.Hdp, name: '每月算力增补', note: '现金或信用点' },
+  { code: 20006, source: ProductSource.Hdp, name: '协作人数增补', note: '现金或信用点' },
 ] as const
 
 function getErrorMessage(error: unknown) {
@@ -40,7 +43,7 @@ function CreateOrderPage({ navigate = (url) => window.location.assign(url) }: Cr
   const [tenantId, setTenantId] = useState(
     () => sessionStorage.getItem(TENANT_ID_STORAGE_KEY) ?? '',
   )
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState('0.01')
   const [selectedCode, setSelectedCode] = useState<number>(products[0].code)
   const [createdOrder, setCreatedOrder] = useState<BillingOrder | null>(null)
   const [error, setError] = useState('')

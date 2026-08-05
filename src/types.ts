@@ -34,14 +34,14 @@ export interface OrderItem {
 export interface BillingOrder {
   orderId: string; orderNo: string; productSource: ProductSource; tenantId: string; item: OrderItem;
   totalAmount: number; orderStatus: number; paymentId?: string;
-  creatorAccountId?: string; payerAccountId?: string; createdAt: number; paidAt: number;
+  creatorAccountId?: string; payerAccountId?: string; createTime?: string; createdAt?: number; paidAt: number;
   completedAt: number; failureReason?: string; businessContext?: Record<string, string>;
   paymentMethod: number; creditPointEntryId?: string;
 }
 export interface ListOrdersRequest {
   requestId: string; productSource: ProductSource; tenantId: string; orderStatuses: number[];
-  productCode: number; orderNo: string; creatorAccountId: string; createdFrom: number;
-  createdTo: number; page: PageRequest;
+  productCode: number; orderNo: string; creatorAccountId: string; createdFrom: string;
+  createdTo: string; page: PageRequest;
 }
 export interface ListOrdersData { items: BillingOrder[]; page: PageResult }
 export interface CreateOrderRequest {
@@ -108,28 +108,23 @@ export type CreditPointBusinessType =
 export interface CreditPointEntry {
   id: string; transactionType: CreditPointTransactionType; amount: number; balanceBefore: number; balanceAfter: number;
   quantity: number; orderId?: string; originalEntryId?: string; businessType: CreditPointBusinessType;
-  operatorAccountId?: string; remark?: string; createdAt: number; extensionData?: Record<string, string>;
+  operatorAccountId?: string; remark?: string; createTime?: string; createdAt?: number;
+  extensionData?: Record<string, string>;
 }
 export interface GetListCreditPointsRequest {
   requestId: string; productSource: ProductSource; tenantId: string; transactionType: CreditPointTransactionType;
-  businessType: CreditPointBusinessType; operatorAccountId: string; createdFrom: number; createdTo: number;
+  businessTypes: CreditPointBusinessType[]; operatorAccountId: string; createdFrom: string; createdTo: string;
   extensionFilters: Record<string, string>; page: PageRequest;
 }
 export interface GetListCreditPointsData { items: CreditPointEntry[]; page: PageResult }
 
-export const CreditPointStatisticGranularity = { None: 0, Hour: 1, Day: 2 } as const
+export const CreditPointStatisticGranularity = { None: 0, Day: 1 } as const
 export type CreditPointStatisticGranularity =
   (typeof CreditPointStatisticGranularity)[keyof typeof CreditPointStatisticGranularity]
 
-export const CreditPointStatisticRefundFilter = {
-  All: 0, ExcludeRefunds: 1, RefundsOnly: 2,
-} as const
-export type CreditPointStatisticRefundFilter =
-  (typeof CreditPointStatisticRefundFilter)[keyof typeof CreditPointStatisticRefundFilter]
-
 export interface GetCreditPointOverviewRequest {
   requestId: string; productSource: ProductSource; tenantId: string;
-  createdFrom: number; createdTo: number;
+  createdFrom: string; createdTo: string;
 }
 export interface CreditPointOverview {
   periodConsumption: number; totalRecharge: number; totalConsumption: number;
@@ -141,13 +136,34 @@ export interface CreditPointStatisticSeries {
   businessType: CreditPointBusinessType; extensionData: Record<string, string>; totalAmount: number;
   totalQuantity: number; totalCount: number; points: CreditPointStatisticPoint[];
 }
+export interface ApplicationInfo {
+  appId: string; appName: string; appIconColor?: string; appIconUrl?: string;
+  status?: number; createType?: number; urlTemplate?: string;
+}
+export interface ApplicationCreditPointStatisticSeries extends CreditPointStatisticSeries {
+  application?: ApplicationInfo | null;
+}
+export interface ApplicationCreditPointStatisticsData {
+  items: ApplicationCreditPointStatisticSeries[]; page: PageResult;
+}
 export interface GetCreditPointStatisticsRequest {
   requestId: string; productSource: ProductSource; tenantId: string; transactionType: CreditPointTransactionType;
-  businessTypes: CreditPointBusinessType[]; createdFrom: number; createdTo: number;
+  businessTypes: CreditPointBusinessType[]; createdFrom: string; createdTo: string;
   extensionFilters: Record<string, string>; groupByBusinessType: boolean;
   groupByExtensionField: string; granularity: CreditPointStatisticGranularity;
-  refundFilter: CreditPointStatisticRefundFilter; page: PageRequest;
+  page: PageRequest;
 }
 export interface GetCreditPointStatisticsData {
   items: CreditPointStatisticSeries[]; page: PageResult;
+}
+export interface GetCreditPointStatisticsSummaryRequest {
+  requestId: string; productSource: ProductSource; tenantId: string;
+  createdFrom: string; createdTo: string;
+}
+export interface CreditPointStatisticsSummary {
+  distribution: GetCreditPointStatisticsData;
+  scenes: GetCreditPointStatisticsData;
+  trend: GetCreditPointStatisticsData;
+  models: GetCreditPointStatisticsData;
+  applications: ApplicationCreditPointStatisticsData;
 }
